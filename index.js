@@ -52,7 +52,7 @@ app.listen(80);
 //loop (5 sec) 
 const makeRequest = async () => {
     try {
-      await axios.get('/prova');
+      await axios.get('https://estensione.onrender.com/prova');
         console.log('GET request to localhost successful');
     } catch (error) {
       console.error('Error making GET request:', error.message);
