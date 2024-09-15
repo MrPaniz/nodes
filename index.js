@@ -59,6 +59,6 @@ const makeRequest = async () => {
     }
   };
 //
-  const interval = setInterval(makeRequest, 5000);
+  //const interval = setInterval(makeRequest, 5000);
 //
 
