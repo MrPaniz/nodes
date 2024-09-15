@@ -101,7 +101,7 @@ app.listen(port, () => {
 
 const makeRequest = async () => {
     try {
-      await axios.get('https://estensione.onrender.com/');
+      await axios.get( `https://estensione.onrender.com:${port}/`);
         console.log('GET request to localhost successful');
     } catch (error) {
       console.error('Error making GET request:', error.message);
