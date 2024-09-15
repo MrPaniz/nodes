@@ -1,11 +1,16 @@
 const express = require('express');
 require('dotenv').config();
 const apiKey = process.env.API_KEY 
+const port = process.env.PORT || 80; 
 const app = express(); 
 const cors = require('cors');
 app.use(cors())
 const axios = require('axios');
 const cheerio = require('cheerio');
+const querystring = require('querystring');
+const SpotifyWebApi = require('spotify-web-api-node');
+
+
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -46,8 +51,13 @@ app.get('/prova', (req, res) => {
 res.json({text: "prova"});
 })
 
+//SPOTY
 
-app.listen(80);
+
+
+
+
+app.listen(port);
 
 //loop (5 sec) 
 const makeRequest = async () => {
