@@ -11,7 +11,7 @@ const port = process.env.PORT || 80;
 // Configurazione delle variabili di ambiente
 const clientId = process.env.ClientId;
 const clientSecret = process.env.ClientSecret;
-const redirect_uri = 'http://localhost/callback'; // Modifica l'URL di redirect appropriato
+const redirect_uri = https://estensione.onrender.com/callback'; // Modifica l'URL di redirect appropriato
 
 let spotifyApi;
 //chiamata per loop a se stesso. 
@@ -95,13 +95,13 @@ app.post('/track', async (req, res) => {
 
 // Avvia il server
 app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}`);
+  console.log(`Server listening at port${port}`);
 });
 
 
 const makeRequest = async () => {
     try {
-      await axios.get('http://localhost/');
+      await axios.get('https://estensione.onrender.com/');
         console.log('GET request to localhost successful');
     } catch (error) {
       console.error('Error making GET request:', error.message);
