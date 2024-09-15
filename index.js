@@ -56,9 +56,9 @@ const makeRequest = async () => {
         console.log('GET request to localhost successful');
     } catch (error) {
       console.error('Error making GET request:', error.message);
-    }
+    } 
   };
 //
-  //const interval = setInterval(makeRequest, 5000);
+  const interval = setInterval(makeRequest, 5000);
 //
 
