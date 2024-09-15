@@ -1,20 +1,95 @@
 const express = require('express');
 require('dotenv').config();
 const apiKey = process.env.API_KEY 
-const port = process.env.PORT || 80; 
 const app = express(); 
 const cors = require('cors');
 app.use(cors())
+app.use(express.json());
 const axios = require('axios');
 const cheerio = require('cheerio');
-const querystring = require('querystring');
-const SpotifyWebApi = require('spotify-web-api-node');
-
-
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const genAI = new GoogleGenerativeAI(apiKey);
+const genAI = new GoogleGenerativeAI(apiKey || process.env.API_KEY);
 
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+
+
+const clientId = process.env.ClientId;
+const clientSecret = process.env.ClientSecret;
+const redirect_uri = 'https://estensione.onrender.com/callback'; // Modifica l'URL di redirect appropriato
+
+
+
+app.get('/login', (req, res) => {
+  const state =  "byuefueioqfefwpo"
+  const scope = 'user-read-private user-read-email user-modify-playback-state';
+
+  res.redirect('https://accounts.spotify.com/authorize?' +
+      querystring.stringify({
+      response_type: 'code',
+      client_id: clientId,
+      scope: scope,
+      redirect_uri: redirect_uri,
+      state: state
+  }));
+});
+
+app.get('/', (req, res) => {
+  res.status(200).send('Ok');
+  
+})
+
+// Callback dopo il login
+app.get('/callback', async (req, res) => {
+  const code = req.query.code || null;
+  try {
+    const credentials = {
+      clientId: clientId,
+      clientSecret: clientSecret,
+      redirectUri: redirect_uri
+    };
+
+    spotifyApi = new SpotifyWebApi(credentials);
+
+    // Ottieni access token e refresh token
+    const data = await spotifyApi.authorizationCodeGrant(code);
+
+    spotifyApi.setAccessToken(data.body['access_token']);
+    spotifyApi.setRefreshToken(data.body['refresh_token']);
+
+    // Avvia il refresh automatico dell'access token prima della sua scadenza
+    setInterval(async () => {
+      try {
+            const refreshData = await spotifyApi.refreshAccessToken();
+            console.log('The access token has been refreshed!');
+            spotifyApi.setAccessToken(refreshData.body['access_token']);
+      } catch (err) {
+            console.log('Could not refresh access token', err);
+      }
+    }, (data.body['expires_in'] - 60) * 1000);
+
+    res.redirect('/'); 
+  } catch (err) {
+    console.log('Something went wrong!', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Aggiungi una traccia alla coda di riproduzione. 
+app.post('/track', async (req, res) => {
+  try {
+    const trackName = req.body.track;
+    const data = await spotifyApi.searchTracks(trackName);
+    const trackId = data.body.tracks.items[0].id;
+
+    await spotifyApi.addToQueue(`spotify:track:${trackId}`);
+    console.log("Track added to queue");
+    res.sendStatus(200);
+  } catch (err) {
+    console.log('Error adding track to queue', err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 
 app.get('/ailink', async (req, res) => {  
   lan = req.query.lan;
@@ -51,24 +126,5 @@ app.get('/prova', (req, res) => {
 res.json({text: "prova"});
 })
 
-//SPOTY
 
-
-
-
-
-app.listen(port);
-
-//loop (5 sec) 
-const makeRequest = async () => {
-    try {
-      await axios.get('https://estensione.onrender.com/prova');
-      //  console.log('GET request to localhost successful');
-    } catch (error) {
-      console.error('Error making GET request:', error.message);
-    } 
-  };
-//
-  const interval = setInterval(makeRequest, 5000);
-//
-
+app.listen(80);
