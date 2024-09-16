@@ -2,7 +2,13 @@ const express = require("express");//
 require('dotenv').config()//
 const querystring = require('querystring');//
 const axios = require("axios");//
+const cheerio = require('cheerio');//
 const SpotifyWebApi = require('spotify-web-api-node');//
+const { GoogleGenerativeAI } = require("@google/generative-ai");//
+const genAI = new GoogleGenerativeAI(apiKey || process.env.API_KEY);
+const apiKey = process.env.API_KEY 
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+
 const cors = require('cors');//
 const app = express();
 app.use(cors());
@@ -11,7 +17,7 @@ const port = process.env.PORT || 80;
 // Configurazione delle variabili di ambiente
 const clientId = process.env.ClientId;
 const clientSecret = process.env.ClientSecret;
-const redirect_uri = 'https://estensione.onrender.com/callback'; // Modifica l'URL di redirect appropriato
+const redirect_uri = 'http://localhost/callback'; // Modifica l'URL di redirect appropriato
 
 let spotifyApi;
 //chiamata per loop a se stesso. 
@@ -92,21 +98,65 @@ app.post('/track', async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+//-----------------------------------------------------------------------
+
+//GOOGLE AI (ESTENSIONE)
+
+app.get('/ailink', async (req, res) => {  
+  lan = req.query.lan;
+  link = req.query.link;  
+ //console.log(lan, link, '123')
+  var text = await getAiData(lan, link);
+  res.status(200).json({"text": text});
+})
+
+async function getAiData(lang = "italiano", link) {
+  const prompt = `fai un riassunto, in ${lang}, di massimo 600 caratteri del contenuto all'interno di questo link: '${link}'. Non evidenziare il fatto che la risposta l'hai trovata li; scrivi solo la risposta`;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+  return text;
+}
+
+
+app.get('/aitrovaq', async (req, res) => {
+  lan = req.query.lan ?? "italiano";
+  link = req.query.link
+  q = req.query.q;
+  data = await  axios.get(link)
+  const textPage = cheerio.load(data).text();
+  const prompt = `rispondi, in ${lan}, a "${q}" con un massimo 400 caratteri basandoti solo sul contenuto all'interno di questo link: '${link}' e di '${textPage}', considerando che in quest ultimo ci può essere del codice html. Non è necessario ci sia una risposta precisa, se la risposta, non è presente in nessun modo, fallo sapere e dai tu una risposta sempre non superando 400 caratteri.
+  inoltre se c'è la risposta non evidenziare il fatto che la risposta l'hai trovata li; scrivi solo la risposta o soluzione trovata all'interno del link o del testo.
+  `;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text()
+  res.status(200).json({"text": text});
+})
+
+
+
+//--------------------------------------------------------
+
+
+
 
 // Avvia il server
 app.listen(port, () => {
-  console.log(`Server listening at port: ${port}`);
+  console.log(`Server listening at http://localhost:${port}`);
 });
 
-
+//LOOP
 const makeRequest = async () => {
     try {
-      await axios.get( `https://estensione.onrender.com/`);
-       // console.log('GET request to localhost successful');
+      await axios.get('http://localhost/');
+        console.log('GET request to localhost successful');
     } catch (error) {
       console.error('Error making GET request:', error.message);
     }
   };
 
-  const interval = setInterval(makeRequest, 10000);
-//
+  const interval = setInterval(makeRequest, 5000);
+
+
+
