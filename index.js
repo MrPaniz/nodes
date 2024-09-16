@@ -149,14 +149,14 @@ app.listen(port, () => {
 //LOOP
 const makeRequest = async () => {
     try {
-      await axios.get('http://localhost/');
+      await axios.get('https://estensione.onrender.com/');
         console.log('GET request to localhost successful');
     } catch (error) {
       console.error('Error making GET request:', error.message);
     }
   };
 
-  const interval = setInterval(makeRequest, 5000);
+  const interval = setInterval(makeRequest, 10000);
 
 
 
