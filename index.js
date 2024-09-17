@@ -20,8 +20,6 @@ const clientSecret = process.env.ClientSecret;
 const redirect_uri = 'https://estensione.onrender.com/callback'; // Modifica l'URL di redirect appropriato
 
 let spotifyApi;
-//chiamata per loop a se stesso. 
-
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -138,7 +136,6 @@ app.get('/aitrovaq', async (req, res) => {
 
 
 //--------------------------------------------------------
-
 
 
 
