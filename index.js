@@ -69,9 +69,9 @@ app.get('/callback', async (req, res) => {
     setInterval(async () => {
       try {
             //Refresh Tokens
-                data = await spotifyApi.refreshAccessToken();
+                let dataIn = await spotifyApi.refreshAccessToken();
             // Save the access token so that it's used in future calls
-                spotifyApi.setAccessToken(data.body['access_token']);
+                spotifyApi.setAccessToken(dataIn.body['access_token']);
       } catch (err) {
             console.log('Could not refresh access token', err);
       }
