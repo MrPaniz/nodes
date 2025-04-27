@@ -1,160 +1,150 @@
-const express = require("express");//
-require('dotenv').config()//
-const querystring = require('querystring');//
-const axios = require("axios");//
-const cheerio = require('cheerio');//
-const SpotifyWebApi = require('spotify-web-api-node');//
-const { GoogleGenerativeAI } = require("@google/generative-ai");//
-const apiKey = process.env.API_KEY 
-const genAI = new GoogleGenerativeAI(apiKey || process.env.API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
+const express = require("express");
+require('dotenv').config();
+const querystring = require('querystring');
+const cors = require('cors');
+const SpotifyWebApi = require('spotify-web-api-node');
 
-const cors = require('cors');//
+// Inizializzazione app Express
 const app = express();
 app.use(cors());
-const port = process.env.PORT || 80; 
-
-// Configurazione delle variabili di ambiente
-const clientId = process.env.ClientId;
-const clientSecret = process.env.ClientSecret;
-const redirect_uri = 'https://estensione.onrender.com/callback'; // Modifica l'URL di redirect appropriato
-
-let spotifyApi;
-
 app.use(express.static('public'));
 app.use(express.json());
+const port = process.env.PORT || 80;
 
-// Gestione del login con Spotify
-app.get('/login', (req, res) => {
-    const state =  "byuefueioqfefwpo"
-    const scope = 'user-read-private user-read-email user-modify-playback-state';
+// Configurazione Spotify
+const clientId = process.env.ClientId;
+const clientSecret = process.env.ClientSecret;
+const redirect_uri = 'https://estensione.onrender.com/api/callback';
 
-    res.redirect('https://accounts.spotify.com/authorize?' +
-        querystring.stringify({
-        response_type: 'code',
-        client_id: clientId,
-        scope: scope,
-        redirect_uri: redirect_uri,
-        state: state
+// Istanza di Spotify API
+let spotifyApi = new SpotifyWebApi({
+  clientId,
+  clientSecret,
+  redirectUri: redirect_uri
+});
+
+// Funzione per rinnovare l'access token
+async function refreshAccessToken() {
+  try {
+    const data = await spotifyApi.refreshAccessToken();
+    spotifyApi.setAccessToken(data.body['access_token']);
+    console.log('Access token rinnovato con successo');
+    return true;
+  } catch (error) {
+    console.error('Errore nel rinnovare l\'access token:', error);
+    return false;
+  }
+}
+
+// Endpoint per il login con Spotify
+app.get('/api/login', (req, res) => {
+  const state = "spotify_auth_state";
+  const scope = 'user-read-private user-read-email user-modify-playback-state user-read-playback-state';
+  
+  res.redirect('https://accounts.spotify.com/authorize?' +
+    querystring.stringify({
+      response_type: 'code',
+      client_id: clientId,
+      scope: scope,
+      redirect_uri: redirect_uri,
+      state: state
     }));
 });
 
-app.get('/', (req, res) => {
-    res.status(200).send('Ok');
-    
-})
-
-
-// Callback dopo il login
-app.get('/callback', async (req, res) => {
+// Endpoint di callback dopo l'autenticazione
+app.get('/api/callback', async (req, res) => {
   const code = req.query.code || null;
+  
   try {
-    const credentials = {
-      clientId: clientId,
-      clientSecret: clientSecret,
-      redirectUri: redirect_uri
-    };
-
-    spotifyApi = new SpotifyWebApi(credentials);
-
     // Ottieni access token e refresh token
     const data = await spotifyApi.authorizationCodeGrant(code);
-
-    spotifyApi.setAccessToken(data.body['access_token']);
-    spotifyApi.setRefreshToken(data.body['refresh_token']);
-
-    // Avvia il refresh automatico dell'access token prima della sua scadenza
-    setInterval(async () => {
-      try {
-            //Refresh Tokens
-                let dataIn = await spotifyApi.refreshAccessToken();
-            // Save the access token so that it's used in future calls
-                spotifyApi.setAccessToken(dataIn.body['access_token']);
-      } catch (err) {
-            console.log('Could not refresh access token', err);
-      }
-    }, (data.body['expires_in'] - 60) * 1000);
-
-    res.redirect('/'); 
-  } catch (err) {
-    console.log('Something went wrong!', err);
-    res.status(500).send('Internal Server Error');
+    const accessToken = data.body['access_token'];
+    const refreshToken = data.body['refresh_token'];
+    const expiresIn = data.body['expires_in'];
+    
+    // Imposta i token nell'istanza di Spotify API
+    spotifyApi.setAccessToken(accessToken);
+    spotifyApi.setRefreshToken(refreshToken);
+    
+    // Imposta un timer per rinnovare il token automaticamente
+    setTimeout(() => refreshAccessToken(), (expiresIn - 60) * 1000);
+    
+    // Redirect alla home
+    res.redirect('/');
+  } catch (error) {
+    console.error('Errore nell\'ottenere i token:', error);
+    res.status(500).send('Errore durante l\'autenticazione');
   }
 });
 
-// Aggiungi una traccia alla coda di riproduzione. 
-app.post('/track', async (req, res) => {
+// Endpoint di base
+app.get('/', (req, res) => {
+  res.status(200).send('Server operativo');
+});
+
+// Aggiungi una traccia alla coda di riproduzione
+app.post('/api/queue', async (req, res) => {
   try {
+    // Verifica se abbiamo un token valido
+    if (!spotifyApi.getAccessToken()) {
+      return res.status(401).json({ error: 'Autenticazione richiesta', success: false });
+    }
+    
     const trackName = req.body.track;
+    if (!trackName) {
+      return res.status(400).json({ error: 'Nome della traccia mancante', success: false });
+    }
+    
     const data = await spotifyApi.searchTracks(trackName);
+    if (!data.body.tracks.items.length) {
+      return res.status(404).json({ error: 'Traccia non trovata', success: false });
+    }
+    
     const trackId = data.body.tracks.items[0].id;
-
     await spotifyApi.addToQueue(`spotify:track:${trackId}`);
-    console.log("Track added to queue");
-    res.sendStatus(200);
-  } catch (err) {
-    console.log('Error adding track to queue', err);
-    res.status(500).send('Internal Server Error');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Traccia aggiunta alla coda',
+      track: {
+        name: data.body.tracks.items[0].name,
+        artist: data.body.tracks.items[0].artists[0].name,
+        id: trackId
+      }
+    });
+  } catch (error) {
+    console.error('Errore nell\'aggiungere la traccia:', error);
+    
+    // Gestione specifica degli errori di autenticazione
+    if (error.statusCode === 401) {
+      try {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          return res.status(401).json({ 
+            error: 'Token rinnovato, riprova', 
+            success: false,
+            tokenRefreshed: true
+          });
+        }
+      } catch (refreshError) {
+        // Continua con l'errore generico
+      }
+    }
+    
+    res.status(500).json({ 
+      error: error.message || 'Errore del server', 
+      success: false 
+    });
   }
 });
-//-----------------------------------------------------------------------
 
-//GOOGLE AI (ESTENSIONE)
-
-app.get('/ailink', async (req, res) => {  
-  lan = req.query.lan;
-  link = req.query.link;  
- //console.log(lan, link, '123')
-  var text = await getAiData(lan, link);
-  res.status(200).json({"text": text});
-})
-
-async function getAiData(lang = "italiano", link) {
-  const prompt = `fai un riassunto, in ${lang}, di massimo 600 caratteri del contenuto all'interno di questo link: '${link}'. Non evidenziare il fatto che la risposta l'hai trovata li; scrivi solo la risposta`;
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-  return text;
-}
-
-
-app.get('/aitrovaq', async (req, res) => {
-  lan = req.query.lan ?? "italiano";
-  link = req.query.link
-  q = req.query.q;
-  data = await  axios.get(link)
-  const textPage = cheerio.load(data).text();
-  const prompt = `rispondi, in ${lan}, a "${q}" con un massimo 400 caratteri basandoti solo sul contenuto all'interno di questo link: '${link}' e di '${textPage}', considerando che in quest ultimo ci può essere del codice html. Non è necessario ci sia una risposta precisa, se la risposta, non è presente in nessun modo, fallo sapere e dai tu una risposta sempre non superando 400 caratteri.
-  inoltre se c'è la risposta non evidenziare il fatto che la risposta l'hai trovata li; scrivi solo la risposta o soluzione trovata all'interno del link o del testo.
-  `;
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text()
-  res.status(200).json({"text": text});
-})
-
-
-
-//--------------------------------------------------------
-
-
+// Endpoint per verificare lo stato dell'autenticazione
+app.get('/api/status', (req, res) => {
+  const isAuthorized = !!spotifyApi.getAccessToken();
+  res.status(200).json({ authorized: isAuthorized });
+});
 
 // Avvia il server
 app.listen(port, () => {
-  console.log(`Server listening at port:${port}`);
+  console.log(`Server in ascolto sulla porta ${port}`);
 });
-
-//LOOP
-const makeRequest = async () => {
-    try {
-      await axios.get('https://estensione.onrender.com/');
-        console.log('GET request to localhost successful');
-    } catch (error) {
-      console.error('Error making GET request:', error.message);
-    }
-  };
-
-  const interval = setInterval(makeRequest, 10000);
-
-
-
