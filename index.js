@@ -26,6 +26,7 @@ let spotifyApi = new SpotifyWebApi({
 // Funzione per rinnovare l'access token
 async function refreshAccessToken() {
   try {
+    console.log("hi");
     const data = await spotifyApi.refreshAccessToken();
     spotifyApi.setAccessToken(data.body['access_token']);
     console.log('Access token rinnovato con successo');
