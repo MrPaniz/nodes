@@ -4,7 +4,7 @@ import SpotifyWebApi from 'spotify-web-api-node';
 const spotifyApi = new SpotifyWebApi({
   clientId: process.env.ClientId,
   clientSecret: process.env.ClientSecret,
-  redirectUri: process.env.REDIRECT_URI || 'https://estensione.onrender.com/api/callback'
+  redirectUri: process.env.REDIRECT_URI || 'https://apispoty.vercel.app'
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
