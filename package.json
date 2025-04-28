@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node index.js",
     "start": "node index.js",
-    "build": "echo \"No build step required\"",
+    "build": "mkdir -p public && echo '<!DOCTYPE html><html><head><title>App</title></head><body><h1>App Server</h1></body></html>' > public/index.html",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
